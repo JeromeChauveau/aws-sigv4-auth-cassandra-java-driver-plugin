@@ -20,10 +20,11 @@ package software.aws.mcs.auth;
  * #L%
  */
 
-import com.datastax.oss.driver.api.core.CqlSession;
-import com.datastax.oss.driver.api.core.cql.*;
-
-import software.aws.mcs.auth.SigV4AuthProvider;
+import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.ResultSet;
+import com.datastax.driver.core.Row;
+import com.datastax.driver.core.Session;
+import com.datastax.driver.core.policies.DCAwareRoundRobinPolicy;
 
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
@@ -51,17 +52,24 @@ public class TestSigV4 {
 
         System.out.println("Using endpoints: " + contactPoints);
 
-        // The CqlSession object is the main entry point of the driver.
-        // It holds the known state of the actual Cassandra cluster (notably the Metadata).
-        // This class is thread-safe, you should create a single instance (per target Cassandra cluster), and share
-        // it throughout your application.
-        try (CqlSession session = CqlSession.builder()
-             .addContactPoints(contactPoints)
-             .withAuthProvider(new SigV4AuthProvider())
-             .withSslContext(SSLContext.getDefault())
-             .withLocalDatacenter("dc1")
-             .build()) {
-
+        Cluster cluster = null;
+        try {
+            cluster = Cluster.builder()
+                .addContactPointsWithPorts (contactPoints)
+                .withAuthProvider(new SigV4AuthProvider())
+                .withSSL()
+                // TODO check. Changed by withSSL() for the time being
+                //.withSslContext(SSLContext.getDefault())
+                // TODO temp
+                .withLoadBalancingPolicy(
+                        DCAwareRoundRobinPolicy.builder()
+                                .withLocalDc("dc1")
+                                .withUsedHostsPerRemoteDc(2)
+                                .allowRemoteDCsForLocalConsistencyLevel()
+                                .build())
+                //.withLocalDatacenter("dc1")
+                .build().init();
+            Session session = cluster.connect();
             // We use execute to send a query to Cassandra. This returns a ResultSet, which is essentially a collection
             // of Row objects.
             ResultSet rs = session.execute("select release_version from system.local");
@@ -71,6 +79,8 @@ public class TestSigV4 {
             // Extract the value of the first (and only) column from the row.
             String releaseVersion = row.getString("release_version");
             System.out.printf("Cassandra version is: %s%n", releaseVersion);
-        }
+        }  finally {
+        if (cluster != null) cluster.close();
+    }
     }
 }

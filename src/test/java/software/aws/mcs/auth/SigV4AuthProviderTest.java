@@ -20,36 +20,33 @@ package software.aws.mcs.auth;
  * #L%
  */
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 public class SigV4AuthProviderTest {
     @Test
     public void testNonceExtraction() {
         final String TEST_NONCE = "1234abcd1234abcd1234abcd1234abcd";
         // Valid nonce is 32 characters, so we test that here
-        assertEquals(ByteBuffer.wrap(TEST_NONCE.getBytes(StandardCharsets.UTF_8)),
-                     ByteBuffer.wrap(SigV4AuthProvider.extractNonce(ByteBuffer.wrap(("nonce=" + TEST_NONCE)
-                                                                                    .getBytes(StandardCharsets.UTF_8)))));
+        assertArrayEquals(TEST_NONCE.getBytes(StandardCharsets.UTF_8), SigV4AuthProvider.extractNonce(("nonce=" + TEST_NONCE).getBytes(StandardCharsets.UTF_8)));
     }
 
     @Test
     public void testShortNonceExtraction() {
         assertThrows(IllegalArgumentException.class, () -> {
-                SigV4AuthProvider.extractNonce(ByteBuffer.wrap("nonce=too_short".getBytes(StandardCharsets.UTF_8)));
+                SigV4AuthProvider.extractNonce("nonce=too_short".getBytes(StandardCharsets.UTF_8));
             });
     }
 
     @Test
     public void testNonceExtractionFailure() {
         assertThrows(IllegalArgumentException.class, () -> {
-                SigV4AuthProvider.extractNonce(ByteBuffer.wrap("nothing to see here".getBytes(StandardCharsets.UTF_8)));
+                SigV4AuthProvider.extractNonce("nothing to see here".getBytes(StandardCharsets.UTF_8));
             });
     }
 
